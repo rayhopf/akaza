@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -7,6 +8,12 @@ import { cn } from '@/lib/utils'
 import type { Message, ActionData } from './chat-container'
 import { SwapCard, type SwapQuote } from '@/components/web3/swap-card'
 import { TokenCard, type TokenData } from '@/components/web3/token-card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 interface ChatMessageProps {
   message: Message
@@ -43,14 +50,53 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
         {/* Action cards */}
         {message.actions && message.actions.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {message.actions.map((action, i) => (
-              <ActionCard key={i} action={action} />
-            ))}
-          </div>
+          <CollapsibleActionCards actions={message.actions} />
         )}
       </div>
     </div>
+  )
+}
+
+function CollapsibleActionCards({ actions }: { actions: ActionData[] }) {
+  const [isOpen, setIsOpen] = useState(actions.length <= 2)
+
+  // If only 1-2 cards, don't bother with collapse
+  if (actions.length <= 2) {
+    return (
+      <div className="mt-3 space-y-2">
+        {actions.map((action, i) => (
+          <ActionCard key={i} action={action} />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-3">
+      <div className="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2 mb-2">
+        <span className="text-sm font-medium text-muted-foreground">
+          {actions.length} action cards
+        </span>
+        <CollapsibleTrigger asChild>
+          <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            {isOpen ? (
+              <>
+                Hide <ChevronUp className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                Show <ChevronDown className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </CollapsibleTrigger>
+      </div>
+      <CollapsibleContent className="space-y-2">
+        {actions.map((action, i) => (
+          <ActionCard key={i} action={action} />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
