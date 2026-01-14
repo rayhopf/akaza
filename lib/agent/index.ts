@@ -4,6 +4,8 @@ import {
   createSdkMcpServer,
 } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
+import * as fs from 'fs'
+import * as path from 'path'
 
 // System prompt for web3-focused chat
 const WEB3_SYSTEM_PROMPT = `You are Akaza, a helpful AI assistant specialized in web3, blockchain, and cryptocurrency topics.
@@ -124,24 +126,55 @@ export type ChatMessage = {
 }
 
 export async function* streamChat(messages: ChatMessage[]) {
-  // Build prompt from messages
-  const prompt = messages
-    .map((m) => `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`)
-    .join('\n\n')
+  // Setup logging
+  const cacheDir = path.join(process.cwd(), '.cache')
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true })
+  }
 
-  const q = query({
-    prompt,
-    options: {
-      mcpServers: { web3: web3Server },
-      systemPrompt: WEB3_SYSTEM_PROMPT,
-      includePartialMessages: true,
-      // Enable Skills from filesystem
-      settingSources: ['project', 'user'],
-      allowedTools: ['Skill', 'Bash', 'Read', 'Write', 'Grep', 'Glob'],
-    },
-  })
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const logFile = path.join(cacheDir, `agent-sdk-${timestamp}.log`)
+  const logStream = fs.createWriteStream(logFile, { flags: 'w' })
 
-  for await (const message of q) {
-    yield message
+  const log = (label: string, data: unknown) => {
+    const entry = `[${new Date().toISOString()}] ${label}:\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
+    logStream.write(entry)
+    console.log(`[Agent SDK] ${label}`)
+  }
+
+  try {
+    // Build prompt from messages
+    const prompt = messages
+      .map((m) => `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`)
+      .join('\n\n')
+
+    log('Query Started', { prompt, messageCount: messages.length })
+
+    const q = query({
+      prompt,
+      options: {
+        mcpServers: { web3: web3Server },
+        systemPrompt: WEB3_SYSTEM_PROMPT,
+        includePartialMessages: true,
+        // Enable Skills from filesystem
+        settingSources: ['project', 'user'],
+        allowedTools: ['Skill', 'Bash', 'Read', 'Write', 'Grep', 'Glob'],
+        // Set working directory for Skills to access .env and project files
+        cwd: process.cwd(),
+      },
+    })
+
+    let messageCount = 0
+    for await (const message of q) {
+      messageCount++
+
+      // Log full message (like test file does)
+      log(`Message #${messageCount} (${message.type})`, message)
+      yield message
+    }
+
+    log('Query Completed', { totalMessages: messageCount })
+  } finally {
+    logStream.end()
   }
 }
