@@ -43,3 +43,9 @@ next-env.d.ts
 # database
 *.db
 /drizzle
+
+# claude (claude skills)
+.claude/*
+
+# cache
+.cache/

@@ -55,7 +55,7 @@ providers/         # React context providers
 
 ### Agent SDK Integration
 
-The chat uses Claude Agent SDK with streaming:
+The chat uses Claude Agent SDK with streaming, MCP tools, and Skills:
 
 ```typescript
 // lib/agent/index.ts
@@ -66,6 +66,9 @@ export async function* streamChat(messages: ChatMessage[]) {
       mcpServers: { web3: web3Server },
       systemPrompt: WEB3_SYSTEM_PROMPT,
       includePartialMessages: true,
+      // Enable Skills from filesystem
+      settingSources: ['project', 'user'],
+      allowedTools: ['Skill', 'Bash', 'Read', 'Write', 'Grep', 'Glob'],
     }
   })
 
@@ -75,9 +78,14 @@ export async function* streamChat(messages: ChatMessage[]) {
 }
 ```
 
-### MCP Tools
+**Skills Integration:**
+- Skills are loaded from `.claude/skills/` (project) and `~/.claude/skills/` (user)
+- Claude automatically invokes Skills when their description matches the user's request
+- Currently includes: **Dune Analytics** for blockchain data queries
 
-Custom tools are defined using `tool()` and registered with `createSdkMcpServer()`:
+### MCP Tools vs Skills
+
+**MCP Tools** are defined programmatically using `tool()` and registered with `createSdkMcpServer()`:
 
 ```typescript
 const polymarketTool = tool(
@@ -90,6 +98,15 @@ const polymarketTool = tool(
   }
 )
 ```
+
+**Skills** are filesystem-based (SKILL.md files) and provide more complex capabilities:
+- Located in `.claude/skills/` directory
+- Loaded automatically when `settingSources` includes `'project'`
+- Claude autonomously invokes them based on description matching
+- Can include documentation, references, and multi-step workflows
+
+Current Skills:
+- **dune** - Query blockchain data using Dune Analytics Python SDK
 
 ### Streaming Endpoint
 
@@ -115,6 +132,25 @@ When tools return actionable data, render as cards:
 3. Update system prompt if needed
 4. Create action card component if actionable
 5. Add case to `ActionCard` in `chat-message.tsx`
+
+### Adding New Skills
+
+1. Create directory: `.claude/skills/your-skill-name/`
+2. Create `SKILL.md` with YAML frontmatter:
+   ```markdown
+   ---
+   name: your-skill-name
+   description: Brief description that triggers when matched
+   ---
+
+   # Your Skill Name
+   [Detailed instructions for Claude]
+   ```
+3. Add any reference files or documentation in subdirectories
+4. Skills are automatically discovered - no code changes needed
+5. Update system prompt to mention the new capability
+
+See [Agent Skills Docs](https://platform.claude.com/docs/en/agent-sdk/skills) for complete guide.
 
 ### Adding New Components
 
@@ -209,10 +245,11 @@ case 'myaction':
 See [TODO.md](./TODO.md) for current tasks and [PLAN.md](./PLAN.md) for overall roadmap.
 
 ### Phase 2 Priorities
-1. **web3-skills plugin** - Clone and integrate for Dune Analytics
+1. ~~**web3-skills plugin** - Clone and integrate for Dune Analytics~~ ✅ Done
 2. **Conversation persistence** - Save/load chat history from DB
 3. **Swap execution** - Implement actual DEX integration
 4. **More tools** - News, DeFi protocols, NFT data
+5. **More Skills** - Additional blockchain analysis capabilities
 
 ### Known Limitations
 - Conversations not persisted yet (in-memory only)
