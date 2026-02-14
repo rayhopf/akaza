@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type Dispatch, type SetStateAction } from 'react'
 import { ChatMessage } from './chat-message'
 import { ChatInput } from './chat-input'
 
@@ -16,26 +16,37 @@ export type ActionData = {
   data: Record<string, unknown>
 }
 
-export function ChatContainer() {
+function updateLastAssistantMessage(
+  setMessages: Dispatch<SetStateAction<Message[]>>,
+  updater: (message: Message) => Message
+): void {
+  setMessages((prev) => {
+    const lastIndex = prev.length - 1
+    const last = prev[lastIndex]
+    if (last?.role !== 'assistant') return prev
+    const updated = [...prev]
+    updated[lastIndex] = updater(last)
+    return updated
+  })
+}
+
+function createMessage(role: 'user' | 'assistant', content: string): Message {
+  return { id: crypto.randomUUID(), role, content }
+}
+
+export function ChatContainer(): React.JSX.Element {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [messages])
 
-  const handleSend = async (content: string) => {
+  async function handleSend(content: string): Promise<void> {
     if (!content.trim() || isLoading) return
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-    }
-
+    const userMessage = createMessage('user', content)
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
@@ -56,13 +67,7 @@ export function ChatContainer() {
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No reader available')
 
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: '',
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
+      setMessages((prev) => [...prev, createMessage('assistant', '')])
 
       const decoder = new TextDecoder()
       let buffer = ''
@@ -76,41 +81,25 @@ export function ChatContainer() {
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed.type === 'text') {
-                setMessages((prev) => {
-                  const updated = [...prev]
-                  const lastIndex = updated.length - 1
-                  const last = updated[lastIndex]
-                  if (last.role === 'assistant') {
-                    updated[lastIndex] = {
-                      ...last,
-                      content: last.content + parsed.content,
-                    }
-                  }
-                  return updated
-                })
-              } else if (parsed.type === 'action') {
-                setMessages((prev) => {
-                  const updated = [...prev]
-                  const lastIndex = updated.length - 1
-                  const last = updated[lastIndex]
-                  if (last.role === 'assistant') {
-                    updated[lastIndex] = {
-                      ...last,
-                      actions: [...(last.actions || []), parsed.data],
-                    }
-                  }
-                  return updated
-                })
-              }
-            } catch {
-              // Skip invalid JSON
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6)
+          if (data === '[DONE]') continue
+
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.type === 'text') {
+              updateLastAssistantMessage(setMessages, (msg) => ({
+                ...msg,
+                content: msg.content + parsed.content,
+              }))
+            } else if (parsed.type === 'action') {
+              updateLastAssistantMessage(setMessages, (msg) => ({
+                ...msg,
+                actions: [...(msg.actions || []), parsed.data],
+              }))
             }
+          } catch {
+            // Skip invalid JSON
           }
         }
       }
@@ -118,11 +107,7 @@ export function ChatContainer() {
       console.error('Chat error:', error)
       setMessages((prev) => [
         ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: 'Sorry, something went wrong. Please try again.',
-        },
+        createMessage('assistant', 'Sorry, something went wrong. Please try again.'),
       ])
     } finally {
       setIsLoading(false)
@@ -147,10 +132,9 @@ export function ChatContainer() {
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
-            {isLoading && messages[messages.length - 1]?.role === 'user' && (
+            {isLoading && messages.at(-1)?.role === 'user' && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="animate-pulse">●</span>
-                <span>Thinking...</span>
+                <span className="animate-pulse">Thinking...</span>
               </div>
             )}
           </div>

@@ -2,9 +2,9 @@
 
 import { useAccount } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowRight, Loader2 } from 'lucide-react'
 
 export type SwapQuote = {
   fromToken: string
@@ -17,14 +17,14 @@ export type SwapQuote = {
   priceImpact?: string
 }
 
-interface SwapCardProps {
+type SwapCardProps = {
   quote: SwapQuote
 }
 
-export function SwapCard({ quote }: SwapCardProps) {
+export function SwapCard({ quote }: SwapCardProps): React.JSX.Element {
   const { isConnected } = useAccount()
 
-  const handleSwap = async () => {
+  function handleSwap(): void {
     // TODO: Implement actual swap execution
     console.log('Executing swap:', quote)
   }

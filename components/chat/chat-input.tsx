@@ -1,34 +1,34 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Send } from 'lucide-react'
 
-interface ChatInputProps {
+type ChatInputProps = {
   onSend: (content: string) => void
   isLoading?: boolean
 }
 
-export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, isLoading }: ChatInputProps): React.JSX.Element {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
-    }
+    const textarea = textareaRef.current
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`
   }, [value])
 
-  const handleSubmit = () => {
+  function handleSubmit(): void {
     if (value.trim() && !isLoading) {
       onSend(value)
       setValue('')
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  function handleKeyDown(e: React.KeyboardEvent): void {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()

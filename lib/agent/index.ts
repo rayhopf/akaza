@@ -1,13 +1,8 @@
-import {
-  query,
-  tool,
-  createSdkMcpServer,
-} from '@anthropic-ai/claude-agent-sdk'
-import { z } from 'zod'
 import * as fs from 'fs'
 import * as path from 'path'
+import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk'
+import { z } from 'zod'
 
-// System prompt for web3-focused chat
 const WEB3_SYSTEM_PROMPT = `You are Akaza, a helpful AI assistant specialized in web3, blockchain, and cryptocurrency topics.
 
 You can help users with:
@@ -26,7 +21,18 @@ You have access to:
 When discussing tokens, swaps, or onchain data, use the available tools and skills to get real data.
 Always be helpful, accurate, and cite sources when possible.`
 
-// Polymarket tool for prediction market data
+type ToolResult = {
+  content: Array<{ type: 'text'; text: string }>
+}
+
+function createTextResult(text: string): ToolResult {
+  return { content: [{ type: 'text' as const, text }] }
+}
+
+function createErrorResult(error: unknown): ToolResult {
+  return createTextResult(`Error: ${error}`)
+}
+
 const polymarketTool = tool(
   'get_polymarket',
   'Fetch prediction market data from Polymarket including current odds and trading volume',
@@ -37,9 +43,8 @@ const polymarketTool = tool(
       .optional()
       .describe('Optional category filter'),
   },
-  async ({ query: searchQuery, category }) => {
+  async ({ query: searchQuery, category }): Promise<ToolResult> => {
     try {
-      // Polymarket Gamma API
       const url = new URL('https://gamma-api.polymarket.com/markets')
       url.searchParams.set('_limit', '5')
       if (searchQuery) url.searchParams.set('_q', searchQuery)
@@ -47,9 +52,7 @@ const polymarketTool = tool(
 
       const response = await fetch(url.toString())
       if (!response.ok) {
-        return {
-          content: [{ type: 'text' as const, text: `Error fetching Polymarket data: ${response.status}` }],
-        }
+        return createErrorResult(`Polymarket API returned ${response.status}`)
       }
 
       const markets = await response.json()
@@ -61,23 +64,13 @@ const polymarketTool = tool(
         endDate: m.endDate,
       }))
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(formatted, null, 2),
-          },
-        ],
-      }
+      return createTextResult(JSON.stringify(formatted, null, 2))
     } catch (error) {
-      return {
-        content: [{ type: 'text' as const, text: `Error: ${error}` }],
-      }
+      return createErrorResult(error)
     }
   }
 )
 
-// Token price tool
 const tokenPriceTool = tool(
   'get_token_price',
   'Get current price and market data for a cryptocurrency token',
@@ -86,35 +79,23 @@ const tokenPriceTool = tool(
       .string()
       .describe('Token ID from CoinGecko (e.g., "bitcoin", "ethereum", "solana")'),
   },
-  async ({ tokenId }) => {
+  async ({ tokenId }): Promise<ToolResult> => {
     try {
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${tokenId}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`
-      )
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${tokenId}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`
+      const response = await fetch(url)
+
       if (!response.ok) {
-        return {
-          content: [{ type: 'text' as const, text: `Error fetching price data: ${response.status}` }],
-        }
+        return createErrorResult(`CoinGecko API returned ${response.status}`)
       }
 
       const data = await response.json()
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(data, null, 2),
-          },
-        ],
-      }
+      return createTextResult(JSON.stringify(data, null, 2))
     } catch (error) {
-      return {
-        content: [{ type: 'text' as const, text: `Error: ${error}` }],
-      }
+      return createErrorResult(error)
     }
   }
 )
 
-// Create in-process MCP server
 const web3Server = createSdkMcpServer({
   name: 'web3-tools',
   tools: [polymarketTool, tokenPriceTool],
@@ -125,30 +106,45 @@ export type ChatMessage = {
   content: string
 }
 
-export async function* streamChat(messages: ChatMessage[]) {
-  // Setup logging
+function ensureCacheDir(): string {
   const cacheDir = path.join(process.cwd(), '.cache')
   if (!fs.existsSync(cacheDir)) {
     fs.mkdirSync(cacheDir, { recursive: true })
   }
+  return cacheDir
+}
 
+function createLogger(): { log: (label: string, data: unknown) => void; close: () => void } {
+  const cacheDir = ensureCacheDir()
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   const logFile = path.join(cacheDir, `agent-sdk-${timestamp}.log`)
   const logStream = fs.createWriteStream(logFile, { flags: 'w' })
 
-  const log = (label: string, data: unknown) => {
-    const entry = `[${new Date().toISOString()}] ${label}:\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
-    logStream.write(entry)
-    console.log(`[Agent SDK] ${label}`)
+  return {
+    log(label: string, data: unknown): void {
+      const separator = '='.repeat(80)
+      const entry = `[${new Date().toISOString()}] ${label}:\n${JSON.stringify(data, null, 2)}\n${separator}\n`
+      logStream.write(entry)
+      console.log(`[Agent SDK] ${label}`)
+    },
+    close(): void {
+      logStream.end()
+    },
   }
+}
+
+function buildPrompt(messages: ChatMessage[]): string {
+  return messages
+    .map((m) => `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`)
+    .join('\n\n')
+}
+
+export async function* streamChat(messages: ChatMessage[]) {
+  const logger = createLogger()
 
   try {
-    // Build prompt from messages
-    const prompt = messages
-      .map((m) => `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`)
-      .join('\n\n')
-
-    log('Query Started', { prompt, messageCount: messages.length })
+    const prompt = buildPrompt(messages)
+    logger.log('Query Started', { prompt, messageCount: messages.length })
 
     const q = query({
       prompt,
@@ -156,10 +152,8 @@ export async function* streamChat(messages: ChatMessage[]) {
         mcpServers: { web3: web3Server },
         systemPrompt: WEB3_SYSTEM_PROMPT,
         includePartialMessages: true,
-        // Enable Skills from filesystem
         settingSources: ['project', 'user'],
         allowedTools: ['Skill', 'Bash', 'Read', 'Write', 'Grep', 'Glob'],
-        // Set working directory for Skills to access .env and project files
         cwd: process.cwd(),
       },
     })
@@ -167,14 +161,12 @@ export async function* streamChat(messages: ChatMessage[]) {
     let messageCount = 0
     for await (const message of q) {
       messageCount++
-
-      // Log full message (like test file does)
-      log(`Message #${messageCount} (${message.type})`, message)
+      logger.log(`Message #${messageCount} (${message.type})`, message)
       yield message
     }
 
-    log('Query Completed', { totalMessages: messageCount })
+    logger.log('Query Completed', { totalMessages: messageCount })
   } finally {
-    logStream.end()
+    logger.close()
   }
 }

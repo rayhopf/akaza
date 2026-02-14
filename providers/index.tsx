@@ -1,14 +1,18 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider } from 'wagmi'
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
-import { config } from '@/lib/web3/config'
 import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
+import { WagmiProvider } from 'wagmi'
+import { config } from '@/lib/web3/config'
 
 import '@rainbow-me/rainbowkit/styles.css'
 
-export function Providers({ children }: { children: React.ReactNode }) {
+type ProvidersProps = {
+  children: React.ReactNode
+}
+
+export function Providers({ children }: ProvidersProps): React.JSX.Element {
   const [queryClient] = useState(() => new QueryClient())
 
   return (
