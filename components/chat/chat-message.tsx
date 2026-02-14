@@ -3,30 +3,30 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
-import type { Message, ActionData } from './chat-container'
-import { SwapCard, type SwapQuote } from '@/components/web3/swap-card'
-import { TokenCard, type TokenData } from '@/components/web3/token-card'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { SwapCard, type SwapQuote } from '@/components/web3/swap-card'
+import { TokenCard, type TokenData } from '@/components/web3/token-card'
+import type { Message, ActionData } from './chat-container'
 
-interface ChatMessageProps {
+type ChatMessageProps = {
   message: Message
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps): React.JSX.Element {
   const isUser = message.role === 'user'
 
   return (
     <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
       <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className={cn(isUser ? 'bg-primary' : 'bg-orange-500')}>
-          {isUser ? 'U' : '🔥'}
+        <AvatarFallback className={isUser ? 'bg-primary' : 'bg-orange-500'}>
+          {isUser ? 'U' : 'A'}
         </AvatarFallback>
       </Avatar>
 
@@ -48,7 +48,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
           )}
         </div>
 
-        {/* Action cards */}
         {message.actions && message.actions.length > 0 && (
           <CollapsibleActionCards actions={message.actions} />
         )}
@@ -57,19 +56,25 @@ export function ChatMessage({ message }: ChatMessageProps) {
   )
 }
 
-function CollapsibleActionCards({ actions }: { actions: ActionData[] }) {
-  const [isOpen, setIsOpen] = useState(actions.length <= 2)
+function ActionCards({ actions }: { actions: ActionData[] }): React.JSX.Element {
+  return (
+    <div className="mt-3 space-y-2">
+      {actions.map((action, i) => (
+        <ActionCard key={i} action={action} />
+      ))}
+    </div>
+  )
+}
 
-  // If only 1-2 cards, don't bother with collapse
+function CollapsibleActionCards({ actions }: { actions: ActionData[] }): React.JSX.Element {
+  const [isOpen, setIsOpen] = useState(false)
+
   if (actions.length <= 2) {
-    return (
-      <div className="mt-3 space-y-2">
-        {actions.map((action, i) => (
-          <ActionCard key={i} action={action} />
-        ))}
-      </div>
-    )
+    return <ActionCards actions={actions} />
   }
+
+  const Icon = isOpen ? ChevronUp : ChevronDown
+  const label = isOpen ? 'Hide' : 'Show'
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-3">
@@ -79,15 +84,7 @@ function CollapsibleActionCards({ actions }: { actions: ActionData[] }) {
         </span>
         <CollapsibleTrigger asChild>
           <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {isOpen ? (
-              <>
-                Hide <ChevronUp className="h-4 w-4" />
-              </>
-            ) : (
-              <>
-                Show <ChevronDown className="h-4 w-4" />
-              </>
-            )}
+            {label} <Icon className="h-4 w-4" />
           </button>
         </CollapsibleTrigger>
       </div>
@@ -100,7 +97,7 @@ function CollapsibleActionCards({ actions }: { actions: ActionData[] }) {
   )
 }
 
-function ActionCard({ action }: { action: ActionData }) {
+function ActionCard({ action }: { action: ActionData }): React.JSX.Element {
   switch (action.type) {
     case 'swap':
       return <SwapCard quote={action.data as SwapQuote} />
@@ -118,9 +115,7 @@ function ActionCard({ action }: { action: ActionData }) {
     default:
       return (
         <div className="rounded-lg border bg-card p-4 text-card-foreground">
-          <p className="text-sm text-muted-foreground">
-            Action: {action.type}
-          </p>
+          <p className="text-sm text-muted-foreground">Action: {action.type}</p>
         </div>
       )
   }

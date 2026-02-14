@@ -1,8 +1,8 @@
 'use client'
 
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { TrendingUp, TrendingDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatMarketCap, formatPrice } from '@/lib/utils'
 
 export type TokenData = {
   name: string
@@ -12,26 +12,13 @@ export type TokenData = {
   marketCap?: number
 }
 
-interface TokenCardProps {
+type TokenCardProps = {
   token: TokenData
 }
 
-export function TokenCard({ token }: TokenCardProps) {
+export function TokenCard({ token }: TokenCardProps): React.JSX.Element {
   const isPositive = (token.change24h ?? 0) >= 0
-
-  const formatPrice = (price: number) => {
-    if (price < 0.01) return `$${price.toFixed(6)}`
-    if (price < 1) return `$${price.toFixed(4)}`
-    if (price < 100) return `$${price.toFixed(2)}`
-    return `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-  }
-
-  const formatMarketCap = (cap: number) => {
-    if (cap >= 1e12) return `$${(cap / 1e12).toFixed(2)}T`
-    if (cap >= 1e9) return `$${(cap / 1e9).toFixed(2)}B`
-    if (cap >= 1e6) return `$${(cap / 1e6).toFixed(2)}M`
-    return `$${cap.toLocaleString()}`
-  }
+  const TrendIcon = isPositive ? TrendingUp : TrendingDown
 
   return (
     <Card className="max-w-xs">
@@ -45,11 +32,7 @@ export function TokenCard({ token }: TokenCardProps) {
                 isPositive ? 'text-green-500' : 'text-red-500'
               )}
             >
-              {isPositive ? (
-                <TrendingUp className="h-4 w-4" />
-              ) : (
-                <TrendingDown className="h-4 w-4" />
-              )}
+              <TrendIcon className="h-4 w-4" />
               {Math.abs(token.change24h).toFixed(2)}%
             </span>
           )}

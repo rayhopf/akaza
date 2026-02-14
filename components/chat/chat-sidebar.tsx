@@ -4,32 +4,35 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { Menu, MessageSquare, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { MessageSquare, Plus, Menu, X } from 'lucide-react'
 
 type Conversation = {
   id: string
   title: string
 }
 
-export function ChatSidebar() {
+export function ChatSidebar(): React.JSX.Element {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(true)
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  // TODO: Load conversations from database
+  const conversations: Conversation[] = []
+
+  const toggleSidebar = (): void => setIsOpen((prev) => !prev)
+  const MobileIcon = isOpen ? X : Menu
 
   return (
     <>
-      {/* Mobile toggle */}
       <Button
         variant="ghost"
         size="icon"
         className="fixed left-4 top-4 z-50 md:hidden"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleSidebar}
       >
-        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        <MobileIcon className="h-5 w-5" />
       </Button>
 
       {/* Sidebar */}
@@ -87,58 +90,31 @@ export function ChatSidebar() {
 
           <Separator />
 
-          {/* Footer - Wallet Connect */}
           <div className="p-4">
             <ConnectButton.Custom>
-              {({
-                account,
-                chain,
-                openAccountModal,
-                openChainModal,
-                openConnectModal,
-                mounted,
-              }) => {
-                const ready = mounted
-                const connected = ready && account && chain
+              {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+                if (!mounted) {
+                  return (
+                    <div aria-hidden style={{ opacity: 0, pointerEvents: 'none', userSelect: 'none' }} />
+                  )
+                }
+
+                if (!account || !chain) {
+                  return (
+                    <Button onClick={openConnectModal} className="w-full" variant="outline">
+                      Connect Wallet
+                    </Button>
+                  )
+                }
 
                 return (
-                  <div
-                    {...(!ready && {
-                      'aria-hidden': true,
-                      style: {
-                        opacity: 0,
-                        pointerEvents: 'none',
-                        userSelect: 'none',
-                      },
-                    })}
-                  >
-                    {!connected ? (
-                      <Button
-                        onClick={openConnectModal}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        Connect Wallet
-                      </Button>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          onClick={openChainModal}
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start"
-                        >
-                          {chain.name}
-                        </Button>
-                        <Button
-                          onClick={openAccountModal}
-                          variant="outline"
-                          size="sm"
-                        >
-                          {account.displayName}
-                        </Button>
-                      </div>
-                    )}
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={openChainModal} variant="ghost" size="sm" className="justify-start">
+                      {chain.name}
+                    </Button>
+                    <Button onClick={openAccountModal} variant="outline" size="sm">
+                      {account.displayName}
+                    </Button>
                   </div>
                 )
               }}
@@ -147,11 +123,10 @@ export function ChatSidebar() {
         </div>
       </aside>
 
-      {/* Mobile overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/50 md:hidden"
-          onClick={() => setIsOpen(false)}
+          onClick={toggleSidebar}
         />
       )}
     </>
