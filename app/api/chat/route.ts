@@ -44,7 +44,22 @@ export async function POST(request: Request): Promise<Response> {
                   controller.enqueue(
                     encodeSSE({
                       type: 'action',
-                      data: { type: block.name, input: block.input },
+                      data: { type: block.name, id: block.id, input: block.input },
+                    })
+                  )
+                }
+              }
+            } else if (message.type === 'user') {
+              for (const block of message.message.content) {
+                if (block.type === 'tool_result') {
+                  controller.enqueue(
+                    encodeSSE({
+                      type: 'action_result',
+                      data: {
+                        id: block.tool_use_id,
+                        output: typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
+                        is_error: block.is_error || false,
+                      },
                     })
                   )
                 }

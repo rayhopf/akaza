@@ -5,6 +5,8 @@ import { z } from 'zod'
 
 const WEB3_SYSTEM_PROMPT = `You are Akaza, a helpful AI assistant specialized in web3, blockchain, and cryptocurrency topics.
 
+IMPORTANT: Today's date is ${new Date().toISOString().split('T')[0]}. The current year is ${new Date().getFullYear()}. Always use the correct year in searches and queries.
+
 You can help users with:
 - Understanding blockchain concepts and terminology
 - Analyzing onchain data and trends using Dune Analytics (multi-chain blockchain data queries)
@@ -153,7 +155,7 @@ export async function* streamChat(messages: ChatMessage[]) {
         systemPrompt: WEB3_SYSTEM_PROMPT,
         includePartialMessages: true,
         settingSources: ['project', 'user'],
-        allowedTools: ['Skill', 'Bash', 'Read', 'Write', 'Grep', 'Glob'],
+        allowedTools: ['Skill', 'Bash', 'Read', 'Write', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
         cwd: process.cwd(),
       },
     })

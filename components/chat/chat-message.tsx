@@ -97,6 +97,75 @@ function CollapsibleActionCards({ actions }: { actions: ActionData[] }): React.J
   )
 }
 
+function BashActionCard({ action }: { action: ActionData }): React.JSX.Element {
+  const command = (action.input as { command?: string })?.command || ''
+  const output = action.output
+  const isError = action.isError
+
+  return (
+    <div className="rounded-lg border bg-card text-card-foreground overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b">
+        <span className="text-xs font-medium text-muted-foreground">$ Bash</span>
+        {output !== undefined && (
+          <span className={cn('ml-auto text-xs', isError ? 'text-red-500' : 'text-green-600')}>
+            {isError ? 'error' : 'done'}
+          </span>
+        )}
+        {output === undefined && (
+          <span className="ml-auto text-xs text-muted-foreground animate-pulse">running...</span>
+        )}
+      </div>
+      {command && (
+        <pre className="px-3 py-2 text-xs overflow-x-auto bg-zinc-950 text-zinc-200">
+          <code>{command}</code>
+        </pre>
+      )}
+      {output !== undefined && (
+        <pre className={cn(
+          'px-3 py-2 text-xs overflow-x-auto max-h-60 border-t',
+          isError ? 'bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300' : 'bg-muted/30'
+        )}>
+          <code>{output.length > 2000 ? output.slice(0, 2000) + '\n... (truncated)' : output}</code>
+        </pre>
+      )}
+    </div>
+  )
+}
+
+function ToolActionCard({ action }: { action: ActionData }): React.JSX.Element {
+  const output = action.output
+  const isError = action.isError
+
+  return (
+    <div className="rounded-lg border bg-card text-card-foreground overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b">
+        <span className="text-xs font-medium text-muted-foreground">{action.type}</span>
+        {output !== undefined && (
+          <span className={cn('ml-auto text-xs', isError ? 'text-red-500' : 'text-green-600')}>
+            {isError ? 'error' : 'done'}
+          </span>
+        )}
+        {output === undefined && (
+          <span className="ml-auto text-xs text-muted-foreground animate-pulse">running...</span>
+        )}
+      </div>
+      {action.input && (
+        <pre className="px-3 py-2 text-xs overflow-x-auto bg-muted/30 border-b">
+          <code>{JSON.stringify(action.input, null, 2)}</code>
+        </pre>
+      )}
+      {output !== undefined && (
+        <pre className={cn(
+          'px-3 py-2 text-xs overflow-x-auto max-h-40',
+          isError ? 'bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300' : 'bg-muted/30'
+        )}>
+          <code>{output.length > 1000 ? output.slice(0, 1000) + '\n... (truncated)' : output}</code>
+        </pre>
+      )}
+    </div>
+  )
+}
+
 function ActionCard({ action }: { action: ActionData }): React.JSX.Element {
   switch (action.type) {
     case 'swap':
@@ -112,11 +181,9 @@ function ActionCard({ action }: { action: ActionData }): React.JSX.Element {
           </pre>
         </div>
       )
+    case 'Bash':
+      return <BashActionCard action={action} />
     default:
-      return (
-        <div className="rounded-lg border bg-card p-4 text-card-foreground">
-          <p className="text-sm text-muted-foreground">Action: {action.type}</p>
-        </div>
-      )
+      return <ToolActionCard action={action} />
   }
 }

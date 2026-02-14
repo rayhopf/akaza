@@ -12,8 +12,12 @@ export type Message = {
 }
 
 export type ActionData = {
-  type: 'swap' | 'buy' | 'polymarket'
-  data: Record<string, unknown>
+  type: string
+  id?: string
+  input?: Record<string, unknown>
+  data?: Record<string, unknown>
+  output?: string
+  isError?: boolean
 }
 
 function updateLastAssistantMessage(
@@ -96,6 +100,15 @@ export function ChatContainer(): React.JSX.Element {
               updateLastAssistantMessage(setMessages, (msg) => ({
                 ...msg,
                 actions: [...(msg.actions || []), parsed.data],
+              }))
+            } else if (parsed.type === 'action_result') {
+              updateLastAssistantMessage(setMessages, (msg) => ({
+                ...msg,
+                actions: (msg.actions || []).map((a) =>
+                  a.id === parsed.data.id
+                    ? { ...a, output: parsed.data.output, isError: parsed.data.is_error }
+                    : a
+                ),
               }))
             }
           } catch {
