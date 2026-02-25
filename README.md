@@ -247,3 +247,7 @@ MIT
 - [Wagmi Documentation](https://wagmi.sh/)
 - [RainbowKit Docs](https://www.rainbowkit.com/)
 - [Drizzle ORM Docs](https://orm.drizzle.team/)
+
+## Screenshot
+
+![Akaza - BTC Inflow/Outflow to Binance](docs/screenshot-btc-flow.png)

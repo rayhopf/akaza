@@ -39,6 +39,7 @@ export async function POST(request: Request): Promise<Response> {
                 controller.enqueue(encodeSSE({ type: 'text', content: event.delta.text }))
               }
             } else if (message.type === 'assistant') {
+              const isError = 'error' in message && message.error
               for (const block of message.message.content) {
                 if (block.type === 'tool_use') {
                   controller.enqueue(
@@ -47,6 +48,8 @@ export async function POST(request: Request): Promise<Response> {
                       data: { type: block.name, id: block.id, input: block.input },
                     })
                   )
+                } else if (block.type === 'text' && block.text && isError) {
+                  controller.enqueue(encodeSSE({ type: 'error', content: block.text }))
                 }
               }
             } else if (message.type === 'user') {
